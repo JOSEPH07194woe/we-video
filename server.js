@@ -1,30 +1,44 @@
-// Import necessary modules
 const express = require('express');
-const app = express();
-const port = 3000;
+const next = require('next');
 
-// Serve static files from the 'public' folder
-app.use(express.static('pages'));
+const app = next({ dev: process.env.NODE_ENV !== 'production' });
+const handle = app.getRequestHandler();
 
-// Route for the SSE stream
-app.get('/events', (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();
+const PORT = 3000;
 
-  // Send a message every 5 seconds
-  setInterval(() => {
-    const message = {
-      time: new Date().toLocaleTimeString(),
-    };
+app.prepare().then(() => {
+  const server = express();
 
-    // Send data to the client
-    res.write(`data: ${JSON.stringify(message)}\n\n`);
-  }, 5000); // Sends message every 5 seconds
-});
+  // Serve Server-Sent Events (SSE) on `/stream`
+  server.get('/stream', (req, res) => {
+    // Set headers for SSE
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
 
-// Start the server
-app.listen(port, () => {
-  console.log(`Server is running at http://localhost:${port}`);
+    // Send initial message
+    res.write(`data: Connection established\n\n`);
+
+    // Send periodic messages
+    let counter = 0;
+    const interval = setInterval(() => {
+      res.write(`data: Message #${counter++}\n\n`);
+    }, 2000);
+
+    // Clean up on client disconnect
+    req.on('close', () => {
+      clearInterval(interval);
+      res.end();
+    });
+  });
+
+  // Serve Next.js pages
+  server.all('*', (req, res) => {
+    return handle(req, res);
+  });
+
+  // Start the server
+  server.listen(PORT, () => {
+    console.log(`> Ready on http://localhost:${PORT}`);
+  });
 });
