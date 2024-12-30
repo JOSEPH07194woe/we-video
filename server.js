@@ -4,7 +4,7 @@ const app = express();
 const port = 3000;
 
 // Serve static files from the 'public' folder
-app.use(express.static('public'));
+app.use(express.static('pages'));
 
 // Route for the SSE stream
 app.get('/events', (req, res) => {
